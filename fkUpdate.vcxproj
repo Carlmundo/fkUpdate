@@ -23,7 +23,7 @@
     <ProjectGuid>{0DD44C29-F57A-4B7A-8C99-E548E4CBA700}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>fkUpdate</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
