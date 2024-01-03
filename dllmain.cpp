@@ -10,6 +10,9 @@ HMODULE self_module;
 HANDLE main_thread;
 std::string status;
 
+bool is_version(const std::string& str) {
+	return str.find_first_not_of("0123456789. ") == std::string::npos;
+}
 int compareVersion(std::string version1, std::string version2) {
 	int i = 0, j = 0, n1 = version1.size(), n2 = version2.size();
 	while (i < n1 || j < n2) {
@@ -80,7 +83,7 @@ int updateCheck() {
 	HINTERNET hInternet = InternetOpen(0, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
 	if (hInternet != NULL){
 		//Update URL
-		const char* versionURL = "https://raw.githubusercontent.com/Carlmundo/Worms2-Website/main/version.txtc";
+		const char* versionURL = "https://raw.githubusercontent.com/Carlmundo/Worms2-Website/main/version.txt";
 		const char* openWebsite = "explorer \"https://github.com/Carlmundo/W2-Plus/releases/latest\"";
 
 		//Attempt to open URL
@@ -112,7 +115,8 @@ int updateCheck() {
 			InternetCloseHandle(hFile);
 			InternetCloseHandle(hInternet);
 			
-			if (downloadContents.size() <= 16) {
+			//Download contents must be less than 16 characters and only contain permitted characters (eg: 1.2.3.4)
+			if (downloadContents.size() <= 16 && is_version(downloadContents)) {
 				std::string versionCurrent = getVersionCurrent();
 				if (versionCurrent != "0") {
 					int versionDiff = compareVersion(downloadContents, versionCurrent);
@@ -135,7 +139,7 @@ int updateCheck() {
 			}
 		}
 		else {
-			updateError = 1;
+			updateError = 2; //Likely no working internet connection or OS with outdated ciphers
 			InternetCloseHandle(hInternet);
 		}
 		if (updateError == 1) {
