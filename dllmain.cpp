@@ -3,6 +3,7 @@
 #include <winInet.h>
 #include <string>
 #include <windows.h>	
+#include "PEInfo.h"
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib,"Version.lib")
 
@@ -10,6 +11,18 @@ HMODULE self_module;
 HANDLE main_thread;
 std::string status;
 
+std::string getGameVersion(DWORD timeDateStamp)
+{
+	switch (timeDateStamp){
+		case 0x3528DAFA: return "BR";
+		case 0x3528DCB1: return "EU";
+		case 0x3528DB52: return "GE";
+		case 0x3528DA98: return "NA";
+		case 0x3528DBDA: return "SA";
+		case 0x3587BE19: return "TRY";
+	}
+	return "NONE";	
+}
 bool is_version(const std::string& str) {
 	return str.find_first_not_of("0123456789. ") == std::string::npos;
 }
@@ -77,57 +90,65 @@ std::string getVersionCurrent() {
 	}
 }
 int updateCheck() {
-	//Set error status
-	int updateError = 0;
-	//Attempt to open an internet connection
-	HINTERNET hInternet = InternetOpen(0, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
-	if (hInternet != NULL){
-		//Update URL
-		const char* versionURL = "https://raw.githubusercontent.com/Carlmundo/Worms2-Website/main/version.txt";
-		const char* openWebsite = "explorer \"https://github.com/Carlmundo/W2-Plus/releases/latest\"";
+	PEInfo pe;
+	int tds = pe.FH->TimeDateStamp;
+	std::string version = getGameVersion(tds);
+	if (version != "NONE") {
+		//Set error status
+		int updateError = 0;
+		//Attempt to open an internet connection
+		HINTERNET hInternet = InternetOpen(0, INTERNET_OPEN_TYPE_DIRECT, NULL, NULL, 0);
+		if (hInternet != NULL) {
+			//Update URL
+			const char* versionURL = "https://raw.githubusercontent.com/Carlmundo/Worms2-Website/main/version.txt";
+			const char* openWebsite = "explorer \"https://github.com/Carlmundo/W2-Plus/releases/latest\"";
 
-		//Attempt to open URL
-		HINTERNET hFile = InternetOpenUrl(hInternet, versionURL, NULL, 0, INTERNET_FLAG_NO_COOKIES | INTERNET_FLAG_NO_CACHE_WRITE | INTERNET_FLAG_RELOAD, NULL);
-		//Set var in advance for MessageBox
-		int result;
-		if (hFile != NULL) {	
-			//Constant to hold the read size(1k)
-			const int downloadBufferSize = 1024;
-			//Store all of the downloaded data
-			std::string downloadContents = "";
+			//Attempt to open URL
+			HINTERNET hFile = InternetOpenUrl(hInternet, versionURL, NULL, 0, INTERNET_FLAG_NO_COOKIES | INTERNET_FLAG_NO_CACHE_WRITE | INTERNET_FLAG_RELOAD, NULL);
+			//Set var in advance for MessageBox
+			int result;
+			if (hFile != NULL) {
+				//Constant to hold the read size(1k)
+				const int downloadBufferSize = 1024;
+				//Store all of the downloaded data
+				std::string downloadContents = "";
 
-			char* downloadBuffer = new char[downloadBufferSize];
-			DWORD availableSize = 0;
-			DWORD bytesRead = 0;
-			do {
-				//Get size of data
-				InternetQueryDataAvailable(hFile, &availableSize, 0, 0);
-				//Read only as much data as is available or the downloadBufferSize
-				if (availableSize > downloadBufferSize)
-					availableSize = downloadBufferSize;
-				//Read the current bytes from the online file
-				InternetReadFile(hFile, downloadBuffer, availableSize, &bytesRead);
-				//Append the buffer to the download contents
-				downloadContents.append(downloadBuffer, availableSize);
-			} while (bytesRead != 0);
+				char* downloadBuffer = new char[downloadBufferSize];
+				DWORD availableSize = 0;
+				DWORD bytesRead = 0;
+				do {
+					//Get size of data
+					InternetQueryDataAvailable(hFile, &availableSize, 0, 0);
+					//Read only as much data as is available or the downloadBufferSize
+					if (availableSize > downloadBufferSize)
+						availableSize = downloadBufferSize;
+					//Read the current bytes from the online file
+					InternetReadFile(hFile, downloadBuffer, availableSize, &bytesRead);
+					//Append the buffer to the download contents
+					downloadContents.append(downloadBuffer, availableSize);
+				} while (bytesRead != 0);
 
-			//Close the handles.
-			InternetCloseHandle(hFile);
-			InternetCloseHandle(hInternet);
-			
-			//Download contents must be less than 16 characters and only contain permitted characters (eg: 1.2.3.4)
-			if (downloadContents.size() <= 16 && is_version(downloadContents)) {
-				std::string versionCurrent = getVersionCurrent();
-				if (versionCurrent != "0") {
-					int versionDiff = compareVersion(downloadContents, versionCurrent);
-					if (versionDiff == 1) {
-						std::string strUpdate = "A new update is available: " + downloadContents + "\n" + "Do you want to download it now?";
-						result = MessageBox(NULL, strUpdate.c_str(), "Update Available", MB_YESNO);
-						if (result == IDYES)
-						{
-							WinExec(openWebsite, SW_HIDE);
-							return 0;
+				//Close the handles.
+				InternetCloseHandle(hFile);
+				InternetCloseHandle(hInternet);
+
+				//Download contents must be less than 16 characters and only contain permitted characters (eg: 1.2.3.4)
+				if (downloadContents.size() <= 16 && is_version(downloadContents)) {
+					std::string versionCurrent = getVersionCurrent();
+					if (versionCurrent != "0") {
+						int versionDiff = compareVersion(downloadContents, versionCurrent);
+						if (versionDiff == 1) {
+							std::string strUpdate = "A new update is available: " + downloadContents + "\n" + "Do you want to download it now?";
+							result = MessageBox(NULL, strUpdate.c_str(), "Update Available", MB_YESNO);
+							if (result == IDYES)
+							{
+								WinExec(openWebsite, SW_HIDE);
+								return 0;
+							}
 						}
+					}
+					else {
+						updateError = 1;
 					}
 				}
 				else {
@@ -135,19 +156,16 @@ int updateCheck() {
 				}
 			}
 			else {
-				updateError = 1;
+				updateError = 2; //Likely no working internet connection or OS with outdated ciphers
+				InternetCloseHandle(hInternet);
 			}
-		}
-		else {
-			updateError = 2; //Likely no working internet connection or OS with outdated ciphers
-			InternetCloseHandle(hInternet);
-		}
-		if (updateError == 1) {
-			LPCTSTR strError = "Unable to check for updates. Do you want to check the website yourself?";
-			result = MessageBox(NULL, strError, "Error", MB_YESNO);
-			if (result == IDYES)
-			{
-				WinExec(openWebsite, SW_HIDE);
+			if (updateError == 1) {
+				LPCTSTR strError = "Unable to check for updates. Do you want to check the website yourself?";
+				result = MessageBox(NULL, strError, "Error", MB_YESNO);
+				if (result == IDYES)
+				{
+					WinExec(openWebsite, SW_HIDE);
+				}
 			}
 		}
 	}
