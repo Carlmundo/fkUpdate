@@ -9,10 +9,8 @@
 
 HMODULE self_module;
 HANDLE main_thread;
-std::string status;
 
-std::string getGameVersion(DWORD timeDateStamp)
-{
+std::string getGameVersion(DWORD timeDateStamp) {
 	switch (timeDateStamp){
 		case 0x3528DAFA: return "BR";
 		case 0x3528DCB1: return "EU";
