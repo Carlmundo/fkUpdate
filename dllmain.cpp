@@ -22,7 +22,14 @@ std::string getGameVersion(DWORD timeDateStamp) {
 	return "NONE";	
 }
 bool is_version(const std::string& str) {
-	return str.find_first_not_of("0123456789. ") == std::string::npos;
+	std::size_t found = str.find_first_not_of("0123456789. ");
+	if (found != std::string::npos && str[found] != 10 && str[found] != 13) //10 = /n, 13= /r
+	{
+		return false;
+	}
+	else {
+		return true;
+	}
 }
 int compareVersion(std::string version1, std::string version2) {
 	int i = 0, j = 0, n1 = version1.size(), n2 = version2.size();
