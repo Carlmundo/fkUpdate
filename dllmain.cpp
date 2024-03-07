@@ -4,6 +4,10 @@
 #include <string>
 #include <windows.h>	
 #include "PEInfo.h"
+#include <iostream>
+#include <sstream>
+#include <vector>
+#include <iterator>
 #pragma comment(lib, "wininet.lib")
 #pragma comment(lib,"Version.lib")
 
@@ -31,23 +35,44 @@ bool is_version(const std::string& str) {
 		return true;
 	}
 }
-int compareVersion(std::string version1, std::string version2) {
-	int i = 0, j = 0, n1 = version1.size(), n2 = version2.size();
-	while (i < n1 || j < n2) {
-		int num1 = 0, num2 = 0;
-		while (i < n1 && version1[i] != '.')
-			num1 = num1 * 10 + (version1[i++] - '0');
-		while (j < n2 && version2[j] != '.')
-			num2 = num2 * 10 + (version2[j++] - '0');
-		if (num1 > num2)
-			return 1;
-		else if (num1 < num2)
-			return -1;
+class Version
+{
+	// An internal utility structure just used to make the std::copy in the constructor easy to write.
+	struct VersionDigit
+	{
+		int value;
+		operator int() const { return value; }
+	};
+	friend std::istream& operator>>(std::istream& str, Version::VersionDigit& digit);
+public:
+	Version(std::string const& versionStr)
+	{
+		// To Make processing easier in VersionDigit prepend a '.'
+		std::stringstream   versionStream(std::string(".") + versionStr);
 
-		i++;
-		j++;
+		// Copy all parts of the version number into the version Info vector.
+		std::copy(std::istream_iterator<VersionDigit>(versionStream),
+			std::istream_iterator<VersionDigit>(),
+			std::back_inserter(versionInfo)
+		);
 	}
-	return 0;
+
+	// Test if two version numbers are the same. 
+	bool operator<(Version const& rhs) const
+	{
+		return std::lexicographical_compare(versionInfo.begin(), versionInfo.end(), rhs.versionInfo.begin(), rhs.versionInfo.end());
+	}
+
+private:
+	std::vector<int>    versionInfo;
+};
+
+// Read a single digit from the version. 
+std::istream& operator>>(std::istream& str, Version::VersionDigit& digit)
+{
+	str.get();
+	str >> digit.value;
+	return str;
 }
 std::string getVersionCurrent() {
 	std::string moduleName = "fkUpdate.dll";
@@ -141,8 +166,9 @@ int updateCheck() {
 				if (downloadContents.size() <= 16 && is_version(downloadContents)) {
 					std::string versionCurrent = getVersionCurrent();
 					if (versionCurrent != "0") {
-						int versionDiff = compareVersion(downloadContents, versionCurrent);
-						if (versionDiff == 1) {
+						Version vLocal(versionCurrent);
+						Version vRemote(downloadContents);
+						if (vLocal < vRemote){
 							std::string strUpdate = "A new update is available: " + downloadContents + "\n" + "Do you want to download it now?";
 							result = MessageBox(NULL, strUpdate.c_str(), "Update Available", MB_YESNO);
 							if (result == IDYES)
