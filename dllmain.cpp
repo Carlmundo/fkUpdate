@@ -107,7 +107,51 @@ std::string getVersionCurrent() {
 		return std::string("0");
 	}
 }
+
+bool userRegCheck(const std::string& regKey) {
+	bool badKey = false;
+	DWORD val;
+	DWORD dataSize = sizeof(val);
+	if (ERROR_SUCCESS == RegGetValueA(HKEY_CURRENT_USER, "Software\\Team17SoftwareLTD\\Worms2", regKey.c_str(), RRF_RT_REG_SZ, nullptr, &val, &dataSize)) {
+		if (val != 46) { //Character code 46 = "."
+			badKey = true;
+		}
+	}
+	else {
+		badKey = true;
+	}
+	if (badKey) {
+		HKEY hKey;
+		DWORD dwDisposition;
+		if (RegCreateKeyEx(HKEY_CURRENT_USER,
+			TEXT("Software\\Team17SoftwareLTD\\Worms2"), 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisposition) == ERROR_SUCCESS) {
+			LPCTSTR value = TEXT(regKey.c_str());
+			LONG setRes = RegSetValueEx(hKey, regKey.c_str(), 0, REG_SZ, (LPBYTE)".", 1);
+			LONG closeOut = RegCloseKey(hKey);
+			return true;
+		}
+		else{
+			return false;
+		}
+	}
+	else {
+		return false;
+	}
+}
+
 int updateCheck() {
+	bool restartRequired = false;
+	if (userRegCheck("W2PATH")){
+		restartRequired = true;
+	}
+	if (userRegCheck("CD")){
+		restartRequired = true;
+	}
+	if (restartRequired){
+		MessageBox(NULL, "Settings have been updated and the game will now close. Please start the game again.", "Worms 2 Plus", MB_OK);
+		exit(0);
+	}
+	
 	//Set error status
 	int updateError = 0;
 	//Attempt to open an internet connection
