@@ -110,21 +110,31 @@ std::string getVersionCurrent() {
 
 bool userRegCheck(const std::string& regKey) {
 	bool badKey = false;
+	HKEY hKey;
 	DWORD val;
 	DWORD dataSize = sizeof(val);
-	if (ERROR_SUCCESS == RegGetValueA(HKEY_CURRENT_USER, "Software\\Team17SoftwareLTD\\Worms2", regKey.c_str(), RRF_RT_REG_SZ, nullptr, &val, &dataSize)) {
-		if (val != 46) { //Character code 46 = "."
+	std::string subKey = "Software\\Team17SoftwareLTD\\Worms2";
+	if (RegOpenKeyEx(HKEY_CURRENT_USER, subKey.c_str(), 0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+		DWORD type;
+		if (RegQueryValueEx(hKey, regKey.c_str(), NULL, &type, (LPBYTE)&val, &dataSize) == ERROR_SUCCESS)
+		{
+			RegCloseKey(hKey);
+			if (val != 46 || type != REG_SZ) { //Character code 46 = "."
+				badKey = true;
+			}
+		}
+		else {
 			badKey = true;
 		}
+		RegCloseKey(hKey);
 	}
 	else {
 		badKey = true;
 	}
 	if (badKey) {
-		HKEY hKey;
 		DWORD dwDisposition;
 		if (RegCreateKeyEx(HKEY_CURRENT_USER,
-			TEXT("Software\\Team17SoftwareLTD\\Worms2"), 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisposition) == ERROR_SUCCESS) {
+			subKey.c_str(), 0, NULL, 0, KEY_WRITE, NULL, &hKey, &dwDisposition) == ERROR_SUCCESS) {
 			LPCTSTR value = TEXT(regKey.c_str());
 			LONG setRes = RegSetValueEx(hKey, regKey.c_str(), 0, REG_SZ, (LPBYTE)".", 1);
 			LONG closeOut = RegCloseKey(hKey);
